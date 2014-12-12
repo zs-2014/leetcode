@@ -82,7 +82,7 @@ public:
         {
             return mid ;
         }
-        else if(num[mid] > num[mid-1])
+        else if(num[mid] < num[mid-1])
         {
            return find_binary(num, l, mid-1);
         }
