@@ -201,3 +201,176 @@ int main(int argc, char *argv[])
     }
     return 0 ;
 }
+/*
+ * 下面使用的是记住父节点的idx的方法，原本以为会快一下，没想到还慢了点！
+ */
+#include <vector>
+#include <queue>
+#include <string>
+#include <unordered_set>
+#include <map>
+#include <algorithm>
+#include <cstdio>
+using namespace std ;
+
+class Solution 
+{
+public:
+    int cmp(const string &str1, const string &str2)
+    {
+        int i = 0 ;
+        int cnt = 0 ;
+        for(i=0 ;i<str1.size() ;i++)
+        {
+            if(str1[i] != str2[i])
+            {
+                cnt++ ;
+            }
+        }
+        return cnt ;
+    }
+    void copy_path(int depth, const string &word, const vector<string>& str_queue, vector<string>& ret_vec,
+                    vector<vector<string>> &ret, const map<string, vector<int>> &parent_idx_map)
+    {
+       const vector<int> &vec_idx = parent_idx_map.find(word) ->second ;
+       int i = 0 ;
+       for(i=0; i< vec_idx.size(); i++)
+       {
+            if(vec_idx[i] != -1)
+            {
+                ret_vec[depth-1] = str_queue[vec_idx[i]] ;
+                copy_path(depth-1, ret_vec[depth-1], str_queue, ret_vec, ret, parent_idx_map) ;
+            }
+            else
+            {
+                ret.push_back(ret_vec) ;
+            }
+       }
+    }
+
+    void copy_result(int depth, const string &end, vector<vector<string>>& ret,
+                    const map<string, vector<int>> &parent_idx_map, 
+                    int curr_idx, int cnt, const vector<string> &str_queue)
+    { 
+        vector<string> ret_vec ;
+        //如果最后一个词是end的话，那么depth是不一样的
+        if(find(str_queue.begin() + curr_idx, str_queue.begin() + curr_idx + cnt, end) != str_queue.begin() + curr_idx + cnt)
+        { 
+            ret_vec.resize(depth) ;
+            ret_vec[depth-1] = end ;
+            copy_path(depth-1, end, str_queue, ret_vec, ret, parent_idx_map) ;
+            return ;
+        }
+        ret_vec.resize(depth + 1) ;
+        ret_vec[depth] = end ;
+        int i = 0 ; 
+        while(i < cnt)
+        {
+            if(cmp(str_queue[curr_idx+i], end) <= 1)  
+            {
+                ret_vec[depth-1] = str_queue[curr_idx+i] ;
+                copy_path(depth-1, str_queue[curr_idx+i], str_queue, ret_vec, ret, parent_idx_map) ; 
+            }
+            i++ ;
+        }
+    }
+    vector<vector<string>> findLadders(string start, string end, unordered_set<string> &dict) 
+    {
+        vector<string> ret_vec ;
+        vector<vector<string>> ret ;
+        if(cmp(start, end) <= 1)
+        {
+            if(start != end)
+            {
+                ret_vec.push_back(start) ;
+                ret_vec.push_back(end) ;
+                ret.push_back(ret_vec) ;
+            }
+            return ret ;
+        }
+        map<string, int> depth_map ;
+        depth_map[start] = 0 ;
+        vector<string> str_queue ; 
+        unordered_set<string> parents_set ; 
+        map<string, vector<int> > parent_idx_map ;
+        parent_idx_map[start] = vector<int>(1, -1) ;
+        parents_set.insert(start) ;
+        str_queue.push_back(start) ;
+        int curr_idx = 0 ;
+        int parent_leaf_cnt = 1 ;
+        int child_leaf_cnt = 1 ;
+        int depth = 0 ;
+        while(curr_idx < str_queue.size())
+        {
+           depth++ ;
+           parent_leaf_cnt = child_leaf_cnt ;
+           child_leaf_cnt = 0 ;
+           while(parent_leaf_cnt > 0)
+           {
+                const string &word = str_queue[curr_idx] ;
+                if(cmp(word, end) <= 1)
+                {
+                    copy_result(depth, end, ret, parent_idx_map, curr_idx, parent_leaf_cnt, str_queue) ;
+                    return ret ;
+                }
+                string tmp = word ;
+                int i=0 ;
+                for(i=0; i < tmp.size(); i++)
+                {
+                    char a = 'a' ; 
+                    char old = tmp[i] ;
+                    for(a='a'; a<='z'; a++)
+                    {
+                       tmp[i] = a ; 
+                       if(dict.find(tmp) != dict.end())
+                       {
+                            unordered_set<string>::const_iterator p_iter = parents_set.find(tmp) ;
+                            //如果这个节点没遍历过，则加入其中
+                            if(p_iter == parents_set.end())
+                            { 
+                                parents_set.insert(tmp) ;
+                                depth_map[tmp] = depth ; 
+                                //记录这个单词的父节点
+                                parent_idx_map[tmp] = vector<int>(1, curr_idx) ;
+                                str_queue.push_back(tmp) ;
+                                child_leaf_cnt++ ;
+                                continue ;
+                            }
+                            //查找这个词所在的层次
+                            map<string, int>::iterator dpt_iter = depth_map.find(tmp) ;
+                            //如果这个词所在的层次小于（必然小于）当前层次，则符合
+                            if (dpt_iter ->second == depth) 
+                            {
+                                map<string, vector<int> >::iterator idx_iter = parent_idx_map.find(tmp) ;
+                                idx_iter ->second.push_back(curr_idx) ;
+                            }
+                       }
+                    }
+                    tmp[i] = old ;
+                }
+                parent_leaf_cnt-- ;
+                curr_idx++ ;
+           }
+        }
+    }
+};
+
+int main(int argc, char *argv[])
+{
+    Solution slt ;
+    //unordered_set<string>dict({"hot","dot","dog","lot","log"}) ;
+    //vector<vector<string>> ret = slt.findLadders("hit", "cog", dict) ;
+    unordered_set<string>dict({"ted","tex","red","tax","tad","den","rex","pee"}) ;
+    vector<vector<string>> ret = slt.findLadders("red", "tax", dict) ;
+    int i = 0 ;
+    for(i=0 ;i<ret.size() ;i++)
+    {
+        int j = 0 ;
+        for(j=0 ;j < ret[i].size(); j++)
+        {
+            printf("%s,", ret[i][j].c_str()) ;
+        }
+        printf("\n") ;
+    }
+    return 0 ;
+}
